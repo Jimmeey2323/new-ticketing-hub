@@ -31,29 +31,15 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const [sessionId] = useState(() => Math.random().toString(36).substr(2, 9));
   const [timestamp] = useState(() => new Date().toLocaleString());
   const [isBlurred, setIsBlurred] = useState(false);
-  const [pdfData, setPdfData] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const currentFile = files[currentIndex];
 
-  // Convert blob to data URL for PDF
+  // Reset PDF error when file changes
   useEffect(() => {
-    if (currentFile && currentFile.type === 'application/pdf') {
-      console.log('Converting PDF blob to data URL for:', currentFile.name);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        console.log('PDF data URL created, length:', result?.length);
-        setPdfData(result);
-      };
-      reader.onerror = (e) => {
-        console.error('FileReader error:', e);
-      };
-      reader.readAsDataURL(currentFile.file);
-    } else {
-      setPdfData(null);
-    }
+    setPdfError(false);
   }, [currentFile]);
 
   // Disable right-click context menu
@@ -191,20 +177,31 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     }
 
     if (currentFile.type === 'application/pdf') {
-      console.log('Rendering as PDF, pdfData available:', !!pdfData);
+      console.log('Rendering PDF with blob URL:', currentFile.url);
       
-      if (!pdfData) {
+      if (pdfError) {
         return (
           <div className="flex items-center justify-center h-full">
             <div className={cn(
-              "text-center p-8 rounded-xl",
+              "text-center p-8 rounded-xl max-w-md",
               darkMode ? "bg-slate-800 text-white" : "bg-white text-gray-900"
             )}>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Loading PDF...</h3>
-              <p className="text-sm opacity-75">
-                Converting file for secure viewing
+              <Download className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-xl font-semibold mb-2">PDF Display Issue</h3>
+              <p className="text-sm opacity-75 mb-4">
+                This PDF cannot be displayed in the browser viewer.
               </p>
+              <p className="text-xs opacity-50">
+                File: {currentFile.name}
+              </p>
+              <p className="text-xs opacity-50 mt-1">
+                Size: {currentFile.size}
+              </p>
+              <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <p className="text-xs">
+                  🔒 Content is loaded and protected by SecureViewer Pro
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -212,20 +209,19 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
       return (
         <div className="w-full h-full flex items-center justify-center">
-          <iframe
-            src={pdfData}
-            className="w-full h-full border-0 no-select"
+          <embed
+            src={`${currentFile.url}#toolbar=0&navpanes=0&scrollbar=0`}
+            type="application/pdf"
+            className="w-full h-full no-select"
             style={{ 
               transform: `scale(${zoom / 100})`,
               transformOrigin: 'top left',
-              minHeight: '600px'
+              minHeight: '600px',
+              border: 'none'
             }}
-            title={currentFile.name}
-            onLoad={() => {
-              console.log('PDF iframe loaded successfully');
-            }}
-            onError={(e) => {
-              console.error('PDF iframe failed to load:', e);
+            onError={() => {
+              console.error('PDF embed failed to load');
+              setPdfError(true);
             }}
           />
         </div>
